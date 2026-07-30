@@ -36,8 +36,8 @@ flowchart LR
     F --> G[Google Sheets<br/>one tab per analysis]
     G --> H[Looker Studio Report]
 
-    style C fill:#2d5,stroke:#333
-    style E fill:#59c,stroke:#333
+    style C fill:#1b4332,stroke:#333,stroke-width:2px,color:#ffffff
+    style E fill:#1c3d5a,stroke:#333,stroke-width:2px,color:#ffffff
 ```
 
 **Why the Sheets bridge exists:** Looker Studio's native PostgreSQL connector could not establish a working connection to Supabase (a persistent, unresolved system error occurred across both pooler and direct-connection configurations). Rather than being blocked, the pipeline routes through an automated n8n workflow that writes query results into Google Sheets on a schedule, which Looker Studio reads from instead — fully automated, no manual export step.
