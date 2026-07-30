@@ -1,3 +1,5 @@
 .streamlit/secrets.toml
 olist_data/
 .DS_Store
+app_before_day5.py
+day5_ai_query_tab.py
