@@ -1,0 +1,620 @@
+{
+  "name": "Olist BI — Supabase to Google Sheets Bridge",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.3,
+      "position": [
+        -144,
+        176
+      ],
+      "id": "77279c6f-4793-43a5-b541-4d197f990029",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    dc.state,\n    COUNT(*) AS num_orders,\n    ROUND(AVG(fo.delivery_days), 1) AS avg_delivery_days,\n    ROUND(AVG(fr.review_score), 2) AS avg_review_score\nFROM clean.fact_orders fo\nJOIN clean.dim_customers dc ON fo.customer_id = dc.customer_id\nLEFT JOIN clean.fact_reviews fr ON fo.order_id = fr.order_id\nWHERE fo.delivery_days IS NOT NULL\nGROUP BY dc.state\nHAVING COUNT(*) >= 30\nORDER BY avg_delivery_days DESC\nLIMIT 15",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        208,
+        -128
+      ],
+      "id": "2a174a78-64a0-4286-858c-b6058487e944",
+      "name": "Query: Delivery vs. Satisfaction",
+      "credentials": {
+        "postgres": {
+          "id": "EX1hnS3PGe6ni04f",
+          "name": "Postgres Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM",
+          "mode": "list",
+          "cachedResultName": "Supabase to LookerStudio",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Delivery Time vs. Satisfaction",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM/edit#gid=0"
+        },
+        "keepFirstRow": true
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        416,
+        -128
+      ],
+      "id": "c8ca3015-5c20-4798-84bf-6f5bbc406049",
+      "name": "Clear: Delivery vs. Satisfaction",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "wFZnXRkpB2xcqxrd",
+          "name": "April 26"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM",
+          "mode": "list",
+          "cachedResultName": "Supabase to LookerStudio",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": "gid=0",
+          "mode": "list",
+          "cachedResultName": "Delivery Time vs. Satisfaction",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM/edit#gid=0"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "State": "={{ $json.state }}",
+            "Number of Orders": "={{ $json.num_orders }}",
+            "Average Delivery Days": "={{ $json.avg_delivery_days }}",
+            "Average Review Score": "={{ $json.avg_review_score }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "State",
+              "displayName": "State",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Number of Orders",
+              "displayName": "Number of Orders",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Average Delivery Days",
+              "displayName": "Average Delivery Days",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Average Review Score",
+              "displayName": "Average Review Score",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        624,
+        -128
+      ],
+      "id": "5d385d9f-1b2f-4272-a5f0-a35cbbde4e33",
+      "name": "Write: Delivery vs. Satisfaction",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "wFZnXRkpB2xcqxrd",
+          "name": "April 26"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT\n    oi.category_english,\n    COUNT(*) AS total_items,\n    SUM(CASE WHEN fo.is_late THEN 1 ELSE 0 END) AS late_items,\n    ROUND(100.0 * SUM(CASE WHEN fo.is_late THEN 1 ELSE 0 END) / COUNT(*), 2) AS late_rate_pct\nFROM clean.fact_order_items oi\nJOIN clean.fact_orders fo ON oi.order_id = fo.order_id\nWHERE fo.is_late IS NOT NULL\nGROUP BY oi.category_english\nHAVING COUNT(*) >= 30\nORDER BY late_rate_pct DESC\nLIMIT 15",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        208,
+        176
+      ],
+      "id": "5f9959f5-ad31-4bf5-89af-b145e291a757",
+      "name": "Query: Delivery Performance by Category",
+      "credentials": {
+        "postgres": {
+          "id": "EX1hnS3PGe6ni04f",
+          "name": "Postgres Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM",
+          "mode": "list",
+          "cachedResultName": "Supabase to LookerStudio",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 2007943820,
+          "mode": "list",
+          "cachedResultName": "Delivery Performance by Category",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM/edit#gid=2007943820"
+        },
+        "keepFirstRow": true
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        416,
+        176
+      ],
+      "id": "6d78cf92-8c1b-44c7-8a7b-a5dbae0852ba",
+      "name": "Clear: Delivery Performance by Category",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "wFZnXRkpB2xcqxrd",
+          "name": "April 26"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM",
+          "mode": "list",
+          "cachedResultName": "Supabase to LookerStudio",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 2007943820,
+          "mode": "list",
+          "cachedResultName": "Delivery Performance by Category",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM/edit#gid=2007943820"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Category English": "={{ $json.category_english }}",
+            "Total Items": "={{ $json.total_items }}",
+            "Late Items": "={{ $json.late_items }}",
+            "Late Rate Percentage": "={{ $json.late_rate_pct }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Category English",
+              "displayName": "Category English",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Total Items",
+              "displayName": "Total Items",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Late Items",
+              "displayName": "Late Items",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            },
+            {
+              "id": "Late Rate Percentage",
+              "displayName": "Late Rate Percentage",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true,
+              "removed": false
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        624,
+        176
+      ],
+      "id": "789c7e88-fff4-400e-bae5-40a68eaf6769",
+      "name": "Write: Delivery Performance by Category",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "wFZnXRkpB2xcqxrd",
+          "name": "April 26"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "executeQuery",
+        "query": "SELECT max_installments, num_orders, avg_order_value FROM (\n    SELECT\n        max_installments,\n        COUNT(*) AS num_orders,\n        ROUND(AVG(total_paid)::numeric, 2) AS avg_order_value\n    FROM clean.fact_payments_summary\n    WHERE max_installments > 0\n    GROUP BY max_installments\n) t\nWHERE num_orders >= 30\nORDER BY max_installments",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.postgres",
+      "typeVersion": 2.6,
+      "position": [
+        208,
+        496
+      ],
+      "id": "6603cdfb-d7e6-472f-a527-53088a6ce50d",
+      "name": "Query: Installments vs. Order Value",
+      "credentials": {
+        "postgres": {
+          "id": "EX1hnS3PGe6ni04f",
+          "name": "Postgres Supabase account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "clear",
+        "documentId": {
+          "__rl": true,
+          "value": "10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM",
+          "mode": "list",
+          "cachedResultName": "Supabase to LookerStudio",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1828010749,
+          "mode": "list",
+          "cachedResultName": "Installments vs. Order Value",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM/edit#gid=1828010749"
+        },
+        "keepFirstRow": true
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        416,
+        496
+      ],
+      "id": "f8324668-c600-48ba-881e-c7cc58152433",
+      "name": "Clear: Installments vs. Order Value",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "wFZnXRkpB2xcqxrd",
+          "name": "April 26"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "value": "10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM",
+          "mode": "list",
+          "cachedResultName": "Supabase to LookerStudio",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM/edit?usp=drivesdk"
+        },
+        "sheetName": {
+          "__rl": true,
+          "value": 1828010749,
+          "mode": "list",
+          "cachedResultName": "Installments vs. Order Value",
+          "cachedResultUrl": "https://docs.google.com/spreadsheets/d/10C3kerjD09pbcN6J95h-INz62djFz7W10il356aSQiM/edit#gid=1828010749"
+        },
+        "columns": {
+          "mappingMode": "defineBelow",
+          "value": {
+            "Maximum Installments": "={{ $json.max_installments }}",
+            "Number of Orders": "={{ $json.num_orders }}",
+            "Average Order Value": "={{ $json.avg_order_value }}"
+          },
+          "matchingColumns": [],
+          "schema": [
+            {
+              "id": "Maximum Installments",
+              "displayName": "Maximum Installments",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Number of Orders",
+              "displayName": "Number of Orders",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            },
+            {
+              "id": "Average Order Value",
+              "displayName": "Average Order Value",
+              "required": false,
+              "defaultMatch": false,
+              "display": true,
+              "type": "string",
+              "canBeUsedToMatch": true
+            }
+          ],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.7,
+      "position": [
+        624,
+        496
+      ],
+      "id": "0d44b622-d0b8-4e64-be29-4ce37a6a6e60",
+      "name": "Write: Installments vs. Order Value",
+      "credentials": {
+        "googleSheetsOAuth2Api": {
+          "id": "wFZnXRkpB2xcqxrd",
+          "name": "April 26"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Olist BI — Supabase → Google Sheets Bridge\nRuns 3 parallel branches on a schedule. Each branch: query\nSupabase Postgres → clear the matching Google Sheet tab →\nappend fresh rows.\n\nBuilt as a workaround: Looker Studio's native PostgreSQL\nconnector wouldn't connect to Supabase (persistent unresolved\nsystem error across pooler + direct connection configs).\nLooker Studio reads from these Sheets instead.",
+        "height": 240,
+        "width": 512,
+        "color": 6
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        208,
+        -576
+      ],
+      "id": "3943e959-7cee-4656-a765-f354902651ae",
+      "name": "Sticky Note"
+    },
+    {
+      "parameters": {
+        "content": "## Delivery Time vs. Satisfaction branch:\nQuery → clear \"Delivery vs Satisfaction\" tab → append.\nPostgres node uses the Session pooler connection (port 5432).",
+        "height": 304,
+        "width": 608,
+        "color": 4
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        -256
+      ],
+      "id": "763c82a6-4594-4478-913b-2305cc3291c2",
+      "name": "Sticky Note1"
+    },
+    {
+      "parameters": {
+        "content": "## Delivery Performance by Category branch:\nQuery → clear \"Delivery Performance by Category\" tab → append.",
+        "height": 272,
+        "width": 608,
+        "color": 2
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        96
+      ],
+      "id": "d2d20720-b5c6-4030-96a1-20590eb73a06",
+      "name": "Sticky Note2"
+    },
+    {
+      "parameters": {
+        "content": "## Installments vs. Order Value branch:\nQuery → clear \"Installments vs Order Value\" tab → append.",
+        "height": 272,
+        "width": 608,
+        "color": 5
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        160,
+        416
+      ],
+      "id": "94fb373b-0a5f-4d77-a43e-ae5dff17ff33",
+      "name": "Sticky Note3"
+    },
+    {
+      "parameters": {
+        "content": "## Schedule Trigger\nRuns hourly. Adjust interval here if Sheets need fresher\nor less frequent updates.",
+        "height": 288,
+        "color": "#121E26"
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -208,
+        32
+      ],
+      "id": "660a3e5b-cfdd-479e-9fef-75e32d28a746",
+      "name": "Sticky Note4"
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Query: Delivery vs. Satisfaction",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Query: Delivery Performance by Category",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Query: Installments vs. Order Value",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query: Delivery vs. Satisfaction": {
+      "main": [
+        [
+          {
+            "node": "Clear: Delivery vs. Satisfaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear: Delivery vs. Satisfaction": {
+      "main": [
+        [
+          {
+            "node": "Write: Delivery vs. Satisfaction",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query: Delivery Performance by Category": {
+      "main": [
+        [
+          {
+            "node": "Clear: Delivery Performance by Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear: Delivery Performance by Category": {
+      "main": [
+        [
+          {
+            "node": "Write: Delivery Performance by Category",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Query: Installments vs. Order Value": {
+      "main": [
+        [
+          {
+            "node": "Clear: Installments vs. Order Value",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clear: Installments vs. Order Value": {
+      "main": [
+        [
+          {
+            "node": "Write: Installments vs. Order Value",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "binaryMode": "separate"
+  },
+  "versionId": "4a77eada-4175-4df8-818e-a5ef0d34580d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "a4d7adfdc41f56d7896f26189e85122c99b1e083ffd1a90245f8b770c169acdf"
+  },
+  "id": "IfKZkIiPiQgEY8AT",
+  "tags": []
+}
