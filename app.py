@@ -1,22 +1,32 @@
 """
-Day 4: Live BI dashboard for the Olist portfolio project.
+Day 4-5: Live BI dashboard for the Olist portfolio project, now with an
+AI Query Assistant tab (natural-language-to-SQL via Gemini).
+
 Queries Supabase Postgres fresh on every load — no data caching, only the
 DB connection itself is cached (a connection pool is a resource, not data).
 
 SETUP:
-    pip install streamlit pandas sqlalchemy psycopg2-binary plotly
+    pip3 install streamlit pandas sqlalchemy psycopg2-binary plotly google-generativeai
 
-    Create .streamlit/secrets.toml (NOT committed to git — add it to .gitignore):
+    .streamlit/secrets.toml (NOT committed to git — add it to .gitignore):
         [connections.supabase]
         connection_string = "postgresql://postgres:[YOUR-PASSWORD]@db.[YOUR-PROJECT-REF].supabase.co:5432/postgres"
+
+        [connections.supabase_readonly]
+        connection_string = "postgresql://ai_readonly.[YOUR-PROJECT-REF]:[PASSWORD]@aws-0-ap-northeast-1.pooler.supabase.com:5432/postgres"
+
+        [gemini]
+        api_key = "your-gemini-api-key"
 
 RUN:
     streamlit run app.py
 """
 
+import re
 import streamlit as st
 import pandas as pd
 from sqlalchemy import create_engine, text
+import google.generativeai as genai
 
 st.set_page_config(page_title="Olist BI Portfolio", layout="wide")
 
@@ -33,6 +43,100 @@ def run_query(sql: str) -> pd.DataFrame:
     engine = get_engine()
     with engine.connect() as conn:
         return pd.read_sql(text(sql), conn)
+
+
+# ---------------- Day 5: AI Query Assistant helpers ----------------
+
+@st.cache_resource
+def get_readonly_engine():
+    """Separate, restricted connection — this is the ONLY engine the AI
+    feature is allowed to use. Never reuse the main app's credentials here."""
+    conn_string = st.secrets["connections"]["supabase_readonly"]["connection_string"]
+    return create_engine(conn_string)
+
+
+@st.cache_data(ttl=3600)
+def get_schema_context() -> str:
+    """Introspect the clean schema so the model always sees the real,
+    current structure instead of a hardcoded (and eventually stale) description."""
+    engine = get_readonly_engine()
+    with engine.connect() as conn:
+        df = pd.read_sql(text("""
+            SELECT table_name, column_name, data_type
+            FROM information_schema.columns
+            WHERE table_schema = 'clean'
+            ORDER BY table_name, ordinal_position
+        """), conn)
+
+    lines = []
+    for table, group in df.groupby("table_name"):
+        cols = ", ".join(f"{r.column_name} ({r.data_type})" for r in group.itertuples())
+        lines.append(f"- {table}: {cols}")
+    return "\n".join(lines)
+
+
+FORBIDDEN_KEYWORDS = [
+    "insert", "update", "delete", "drop", "alter", "truncate",
+    "grant", "revoke", "create", ";", "--",
+]
+
+
+def validate_sql(sql: str) -> tuple[bool, str]:
+    """Defense in depth: even though ai_readonly can't write, still refuse
+    to execute anything that isn't a plain single SELECT."""
+    stripped = sql.strip().lower()
+    if not stripped.startswith("select"):
+        return False, "Generated query must be a SELECT statement."
+    for kw in FORBIDDEN_KEYWORDS:
+        if kw in stripped:
+            return False, f"Generated query contains a disallowed keyword: '{kw}'."
+    if "limit" not in stripped:
+        sql = sql.rstrip().rstrip(";") + " LIMIT 200"
+    return True, sql
+
+
+def generate_sql(question: str, schema_context: str) -> str:
+    genai.configure(api_key=st.secrets["gemini"]["api_key"])
+    model = genai.GenerativeModel("gemini-3.5-flash-lite")
+
+    system_prompt = f"""You are a PostgreSQL query generator for an e-commerce
+analytics database (Olist Brazilian e-commerce dataset).
+
+Schema (schema name: clean):
+{schema_context}
+
+Rules:
+- Output ONLY a single valid PostgreSQL SELECT statement. No explanation,
+  no markdown code fences, no semicolon.
+- Always qualify table names with the clean schema, e.g. clean.fact_orders.
+- Never write anything other than a SELECT.
+- Add a reasonable LIMIT if the question doesn't imply an aggregate/single row.
+"""
+
+    response = model.generate_content(
+        [system_prompt, question],
+        generation_config={"max_output_tokens": 500},
+    )
+    raw = response.text.strip()
+    # Gemini sometimes wraps output in code fences despite instructions - strip them.
+    raw = re.sub(r"^```(?:sql)?\s*|\s*```$", "", raw, flags=re.IGNORECASE).strip()
+    return raw
+
+
+def explain_results(question: str, df: pd.DataFrame) -> str:
+    """Optional: ask Gemini for a one-line plain-language read of the result,
+    matching the insight-memo style used in Tabs 1-3."""
+    genai.configure(api_key=st.secrets["gemini"]["api_key"])
+    model = genai.GenerativeModel("gemini-3.5-flash-lite")
+
+    prompt = (
+        f"Question: {question}\n\n"
+        f"Result (first rows):\n{df.head(10).to_string()}\n\n"
+        "Give a single, concise sentence summarizing what this shows. "
+        "Do not restate the raw numbers verbatim, interpret them."
+    )
+    response = model.generate_content(prompt, generation_config={"max_output_tokens": 200})
+    return response.text.strip()
 
 
 # ---------------- Sidebar ----------------
@@ -53,10 +157,11 @@ with st.sidebar:
 
 st.title("Olist E-Commerce Analytics")
 
-tab1, tab2, tab3 = st.tabs([
+tab1, tab2, tab3, tab4 = st.tabs([
     "📦 Delivery Performance by Category",
     "⭐ Delivery Time vs. Satisfaction",
     "💳 Installments vs. Order Value",
+    "🤖 AI Query Assistant",
 ])
 
 # ---------------- Tab 1: Category delivery performance ----------------
@@ -179,3 +284,43 @@ with tab3:
         "due to very small sample sizes (some under 30 orders), which would "
         "otherwise show misleadingly extreme averages."
     )
+
+# ---------------- Tab 4: AI Query Assistant ----------------
+with tab4:
+    st.subheader("Ask a question about the data")
+    st.caption(
+        "Runs on a dedicated read-only database role — this tab can never "
+        "write, alter, or delete anything, regardless of what's asked."
+    )
+
+    with st.form(key="ai_question_form"):
+        question = st.text_input(
+            "e.g. Which 5 states have the most orders?",
+            key="ai_question",
+        )
+        submitted = st.form_submit_button("Ask")
+
+    if submitted and question:
+        with st.spinner("Generating SQL..."):
+            schema_context = get_schema_context()
+            raw_sql = generate_sql(question, schema_context)
+            is_valid, result = validate_sql(raw_sql)
+
+        if not is_valid:
+            st.error(f"Query rejected before execution: {result}")
+        else:
+            safe_sql = result
+            st.code(safe_sql, language="sql")
+            try:
+                with st.spinner("Running query..."):
+                    readonly_engine = get_readonly_engine()
+                    with readonly_engine.connect() as conn:
+                        result_df = pd.read_sql(text(safe_sql), conn)
+                st.dataframe(result_df, use_container_width=True)
+
+                if not result_df.empty:
+                    with st.spinner("Summarizing..."):
+                        summary = explain_results(question, result_df)
+                    st.info(f"**Insight:** {summary}")
+            except Exception as e:
+                st.error(f"Query failed to execute: {e}")
